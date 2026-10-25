@@ -160,6 +160,10 @@ async function backupCommand(values: Record<string, string | boolean>): Promise<
       : path.resolve(config.dataDir, 'backups', stamp);
   const dbOnly = values['db-only'] === true;
 
+  if (outputDir === config.blobDir || outputDir.startsWith(`${config.blobDir}${path.sep}`)) {
+    fail('Backup output must not be inside the blob directory');
+  }
+
   await mkdir(outputDir, { recursive: true });
 
   const db = openDatabase(config);

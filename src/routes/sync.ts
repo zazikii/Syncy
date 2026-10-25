@@ -128,7 +128,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       const rows = listVersions(app.db, vaultId, fileId, query.cursor ?? null, query.limit + 1);
       const hasMore = rows.length > query.limit;
       const page = hasMore ? rows.slice(0, query.limit) : rows;
-      const nextCursor = page.length > 0 ? page[page.length - 1]!.revision : null;
+      const nextCursor = hasMore && page.length > 0 ? page[page.length - 1]!.revision : null;
 
       return {
         vaultId,

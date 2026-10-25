@@ -4,7 +4,12 @@ import { signAccessToken } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { issueSession } from '../auth/sessions.js';
 import { getDevice, touchDevice, upsertDevice } from '../db/devices.js';
-import { revokeAllForUser, revokeRefreshToken, rotateRefreshToken } from '../db/tokens.js';
+import {
+  revokeAllForUser,
+  revokeFamily,
+  revokeRefreshToken,
+  rotateRefreshToken,
+} from '../db/tokens.js';
 import {
   bumpTokenVersion,
   createUser,
@@ -131,9 +136,11 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const user = findUserById(app.db, rotated.userId);
 
     if (!user || user.disabled === 1) {
+      revokeFamily(app.db, rotated.issued.row.family_id);
       throw unauthorized('ACCOUNT_DISABLED', 'This account is no longer active');
     }
     if (rotated.deviceId && !getDevice(app.db, user.id, rotated.deviceId)) {
+      revokeFamily(app.db, rotated.issued.row.family_id);
       throw unauthorized('DEVICE_REVOKED', 'This device has been removed');
     }
 
