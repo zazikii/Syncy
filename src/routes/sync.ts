@@ -3,8 +3,8 @@ import { touchDevice } from '../db/devices.js';
 import {
   getFile,
   getVersion,
-  listAllFiles,
   listChanges,
+  listFilesPage,
   listVersions,
   toChange,
   toFileSummary,
@@ -29,13 +29,20 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
     const { vaultId } = vaultParams.parse(request.params);
     const query = filesQuery.parse(request.query);
     const access = requireVaultAccess(app.db, vaultId, request.auth!.user.id);
-    const files = listAllFiles(app.db, vaultId, query.includeDeleted);
+    const page = listFilesPage(app.db, vaultId, {
+      includeDeleted: query.includeDeleted,
+      afterFileId: query.cursor ?? '',
+      limit: query.limit,
+    });
+    const lastFile = page.rows[page.rows.length - 1];
 
     return {
       vaultId,
       revision: access.vault.revision,
       prunedBeforeRevision: access.vault.pruned_before_rev,
-      files: files.map(toFileSummary),
+      hasMore: page.hasMore,
+      nextCursor: page.hasMore && lastFile ? lastFile.file_id : null,
+      files: page.rows.map(toFileSummary),
     };
   });
 

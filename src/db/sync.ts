@@ -124,11 +124,30 @@ export function getFile(db: Db, vaultId: string, fileId: string): FileRow | unde
     .get(vaultId, fileId) as FileRow | undefined;
 }
 
-export function listAllFiles(db: Db, vaultId: string, includeDeleted: boolean): FileRow[] {
-  const where = includeDeleted ? '' : 'AND deleted = 0';
-  return db
-    .prepare(`SELECT * FROM files WHERE vault_id = ? ${where} ORDER BY path ASC`)
-    .all(vaultId) as FileRow[];
+export interface FilePage {
+  rows: FileRow[];
+  hasMore: boolean;
+}
+
+export function listFilesPage(
+  db: Db,
+  vaultId: string,
+  options: { includeDeleted: boolean; afterFileId: string; limit: number },
+): FilePage {
+  const deletedFilter = options.includeDeleted ? '' : 'AND deleted = 0';
+  const rows = db
+    .prepare(
+      `SELECT * FROM files
+       WHERE vault_id = ?
+         ${deletedFilter}
+         AND file_id > ?
+       ORDER BY file_id ASC
+       LIMIT ?`,
+    )
+    .all(vaultId, options.afterFileId, options.limit + 1) as FileRow[];
+
+  const hasMore = rows.length > options.limit;
+  return { rows: hasMore ? rows.slice(0, options.limit) : rows, hasMore };
 }
 
 export function listChanges(

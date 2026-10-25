@@ -142,6 +142,10 @@ When removing a member:
 - They may still retain any vault key and files they already decrypted. E2EE cannot revoke data already copied.
 - For stronger forward secrecy, rotate the vault key after removal, re-encrypt future content, and redistribute envelopes. The current server does not automate key rotation; the plugin must implement it.
 
+## Vault settings and E2EE
+
+The structured vault-settings endpoint stores an opaque JSON document. Encrypt the values client-side (or the entire settings object) and store ciphertext inside the document. The server tracks the settings revision but cannot read the configuration.
+
 ## Version history and E2EE
 
 - Version metadata stores ciphertext hashes and encrypted paths.

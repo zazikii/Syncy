@@ -314,13 +314,21 @@ The owner can remove others. A non-owner can remove themselves. The owner cannot
 
 ### `GET /v1/vaults/:vaultId/files`
 
-Query: `includeDeleted=true|false` (default `false`).
+Query parameters:
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `includeDeleted` | `false` | Include tombstones. |
+| `cursor` | unset | Return files whose `fileId` is greater than this value. Use the previous page's `nextCursor`. |
+| `limit` | `1000` | 1–5000 files per page. |
 
 ```json
 {
   "vaultId": "vault-id",
   "revision": 42,
   "prunedBeforeRevision": 0,
+  "hasMore": true,
+  "nextCursor": "stable-file-id",
   "files": [
     {
       "fileId": "stable-file-id",
@@ -339,9 +347,93 @@ Query: `includeDeleted=true|false` (default `false`).
 }
 ```
 
-This is an unpaginated point-in-time snapshot. Use it for a full resync after `CURSOR_EXPIRED`, then pull changes since the returned `revision`.
+This is a paginated snapshot. Fetch pages by passing the previous page's `nextCursor` until `hasMore` is false. Keep the `revision` from the **first** page as the snapshot cursor, then pull changes since that revision. Concurrent changes are safe: a file that changes between pages is either returned with a newer state or included in the subsequent change feed, and applies are idempotent.
+
+Use this endpoint to initialize a large vault or to recover after `CURSOR_EXPIRED`. It avoids loading a whole vault into one response.
 
 For E2EE vaults, `path` is opaque ciphertext and `encrypted` is true.
+
+## Vault settings
+
+Syncy also stores a versioned settings document per vault. This is the equivalent of Obsidian Sync's vault-configuration sync: appearance, hotkeys, core-plugin state, enabled community plugins, snippets, themes and plugin data can be stored as one opaque JSON document.
+
+The server does not interpret the document. For E2EE vaults, encrypt the values client-side and store ciphertext in the document.
+
+### `GET /v1/vaults/:vaultId/settings`
+
+Requires at least the `reader` role.
+
+```json
+{
+  "vaultId": "vault-id",
+  "revision": 3,
+  "settings": {
+    "appearance": { "theme": "obsidian", "baseFontSize": 17 },
+    "hotkeys": { "app:toggle-left-sidebar": [{ "modifiers": ["Mod"], "key": "B" }] },
+    "corePlugins": { "graph": true, "canvas": true },
+    "communityPlugins": {
+      "enabled": ["obsidian-git"],
+      "data": { "obsidian-git": { "autoPull": true } }
+    },
+    "snippets": { "enabled": ["wide.css"] }
+  },
+  "updatedAt": 1750000000000,
+  "updatedByDevice": "device-id"
+}
+```
+
+If no settings have been saved, `revision` is `0`, `settings` is `null`, and both timestamps are `null`.
+
+### `PUT /v1/vaults/:vaultId/settings`
+
+Requires `editor` or `owner`. Maximum serialized size: 1 MiB.
+
+```json
+{
+  "settings": {
+    "appearance": { "theme": "moonstone" }
+  },
+  "expectedRevision": 3
+}
+```
+
+- `expectedRevision` omitted — unconditional write.
+- `expectedRevision: null` — only write if no settings exist yet.
+- A number — optimistic concurrency.
+
+Returns the same shape as `GET`. A stale revision returns `409 SETTINGS_CONFLICT` with the current state in `error.details`:
+
+```json
+{
+  "error": {
+    "code": "SETTINGS_CONFLICT",
+    "message": "Vault settings have changed on the server since the expected revision",
+    "details": {
+      "currentRevision": 4,
+      "settings": { "...": "..." },
+      "updatedAt": 1750000000000,
+      "updatedByDevice": "device-id"
+    }
+  }
+}
+```
+
+Settings updates are independent of the file change feed and get their own revision. Subscribed clients receive a `vault_settings_changed` WebSocket event.
+
+Recommended document shape (all fields optional, chosen by the plugin):
+
+| Key | Contents |
+| --- | --- |
+| `appearance` | Theme, font size, CSS snippets toggle, interface settings |
+| `hotkeys` | Obsidian hotkey map |
+| `corePlugins` | Core plugin enable map |
+| `communityPlugins` | Enabled plugin IDs and optional per-plugin data |
+| `snippets` | Enabled snippets and CSS content or hashes |
+| `themes` | Installed themes and active theme |
+| `workspace` | Optional; usually exclude because it is device-specific |
+| `e2ee` | Ciphertext/metadata for encrypted settings |
+
+Clients can also sync raw `.obsidian/*.json` files through the normal file API. Use whichever is more convenient; the settings endpoint is best for a structured, conflict-aware configuration document.
 
 ## Change feed
 
@@ -662,6 +754,7 @@ Server messages:
 { "type": "unsubscribed", "vaultId": "vault-id", "reason": "membership_changed" }
 { "type": "pong", "serverTime": 1750000000000 }
 { "type": "vault_updated", "vaultId": "vault-id", "name": "New name", "actorUserId": "user-id" }
+{ "type": "vault_settings_changed", "vaultId": "vault-id", "revision": 4, "actorUserId": "user-id" }
 {
   "type": "vault_changed",
   "vaultId": "vault-id",
@@ -749,5 +842,5 @@ curl -s "http://localhost:8080/v1/vaults/$VAULT/changes?since=0" \
 | `429` | Rate limited. |
 | `500` | Internal error. |
 
-Common error codes include `VALIDATION_ERROR`, `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_REVOKED`, `REFRESH_TOKEN_REUSED`, `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED`, `DEVICE_REVOKED`, `INSUFFICIENT_ROLE`, `VAULT_NOT_FOUND`, `BLOB_MISSING`, `BLOB_HASH_MISMATCH`, `BLOB_TOO_LARGE`, `INVALID_PATH`, `ENCRYPTION_MISMATCH`, `DUPLICATE_FILE_ID`, `CURSOR_EXPIRED`, `CURSOR_AHEAD`, `RATE_LIMITED`.
+Common error codes include `VALIDATION_ERROR`, `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_REVOKED`, `REFRESH_TOKEN_REUSED`, `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED`, `DEVICE_REVOKED`, `INSUFFICIENT_ROLE`, `VAULT_NOT_FOUND`, `BLOB_MISSING`, `BLOB_HASH_MISMATCH`, `BLOB_TOO_LARGE`, `INVALID_PATH`, `ENCRYPTION_MISMATCH`, `DUPLICATE_FILE_ID`, `CURSOR_EXPIRED`, `CURSOR_AHEAD`, `SETTINGS_CONFLICT`, `SETTINGS_TOO_LARGE`, `RATE_LIMITED`.
 

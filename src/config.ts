@@ -48,10 +48,10 @@ const envSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(2 * 1024 * 1024),
+    .default(8 * 1024 * 1024),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(6000),
   TRUST_PROXY: bool(false),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });

@@ -15,6 +15,7 @@ import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerBlobRoutes } from './routes/blobs.js';
 import { registerDeviceRoutes } from './routes/devices.js';
+import { registerSettingsRoutes } from './routes/settings.js';
 import { registerSyncRoutes } from './routes/sync.js';
 import { registerVaultRoutes } from './routes/vaults.js';
 import { registerWsRoutes } from './routes/ws.js';
@@ -143,6 +144,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerAuthRoutes(app);
   await registerDeviceRoutes(app);
   await registerVaultRoutes(app);
+  await registerSettingsRoutes(app);
   await registerSyncRoutes(app);
   await registerBlobRoutes(app);
   await registerAdminRoutes(app);

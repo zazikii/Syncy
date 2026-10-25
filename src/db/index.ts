@@ -138,6 +138,19 @@ const migrations: Migration[] = [
       ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 3,
+    name: 'vault_settings',
+    sql: `
+      CREATE TABLE vault_settings (
+        vault_id TEXT PRIMARY KEY REFERENCES vaults(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        updated_by_device TEXT
+      );
+    `,
+  },
 ];
 
 export function openDatabase(config: Config): Db {

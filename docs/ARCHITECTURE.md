@@ -95,6 +95,10 @@ Version history queries exclude delete tombstones, so users only see content ver
 
 An ordered append-only log per vault: `(vault_id, revision) -> version_id`. It is the sync cursor source. Pull queries join versions for metadata.
 
+### vault_settings
+
+One optional row per vault holding an opaque JSON settings document, its own revision, timestamps and originating device. It is intentionally separate from the file change feed: configuration clients use optimistic settings revisions, while notes and plugins use file revisions. Updates broadcast `vault_settings_changed`.
+
 Revisions are assigned per accepted change inside a transaction. A batch of N accepted changes advances the vault revision by N. If a batch is rejected, no revisions are consumed.
 
 ## Authentication and request lifecycle
@@ -132,12 +136,12 @@ For each change in a batch:
 
 For plaintext vaults, the engine simulates the final live path map for the batch:
 
-- Start from all currently live plaintext files.
+- Query only the current owners of paths targeted by this batch, never the whole vault.
 - Apply the batch changes in input order, but iterate until no new conflicts appear because rejecting one change makes its old path remain occupied.
 - Unchanged files win over changes.
 - If multiple changes target the same free path, the earliest input order wins; the rest conflict.
 
-This permits atomic rename chains and path swaps while keeping the final state unique. The database unique index is a second line of defense.
+This permits atomic rename chains and path swaps while keeping the final state unique. The database unique index is a second line of defense. Push cost scales with batch size, not vault size.
 
 ### Apply
 
@@ -159,7 +163,7 @@ Otherwise:
 - `since < prunedBeforeRevision` → `410 CURSOR_EXPIRED`.
 - `since > currentRevision` → `410 CURSOR_AHEAD` (for example after a backup restore).
 
-A full snapshot is available from `GET /files`.
+A full snapshot is available from the paginated `GET /files` endpoint. Pagination is by stable `fileId`, and clients keep the first page's revision as the cursor for the subsequent change pull.
 
 ## Blob storage
 

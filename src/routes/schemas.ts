@@ -140,6 +140,11 @@ export const restoreVersionSchema = z.strictObject({
   path: z.string().min(1).max(16_384).optional(),
 });
 
+export const updateVaultSettingsSchema = z.strictObject({
+  settings: z.record(z.string(), z.unknown()),
+  expectedRevision: z.number().int().nonnegative().nullable().optional(),
+});
+
 export const changesQuery = z.object({
   since: z.coerce.number().int().nonnegative().default(0),
   until: z.coerce.number().int().nonnegative().optional(),
@@ -151,6 +156,8 @@ export const filesQuery = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  cursor: z.string().regex(FILE_ID_PATTERN).optional(),
+  limit: z.coerce.number().int().min(1).max(5000).default(1000),
 });
 
 export const versionsQuery = z.object({

@@ -118,6 +118,20 @@ function conflictResult(conflict: SyncConflict): ChangeResult {
   };
 }
 
+interface PathOwner {
+  fileId: string;
+  row: FileRow | null;
+  candidate: Candidate | null;
+}
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 function detectPathConflicts(
   db: Db,
   vaultId: string,
@@ -128,81 +142,80 @@ function detectPathConflicts(
   if (candidates.length === 0) return { conflicts, rejected };
 
   const byFileId = new Map(candidates.map((candidate) => [candidate.change.fileId, candidate]));
+  const targetKeys = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate.deleted && candidate.pathKey) targetKeys.add(candidate.pathKey);
+  }
+  if (targetKeys.size === 0) return { conflicts, rejected };
+
+  const rows: FileRow[] = [];
+  for (const keys of chunked([...targetKeys], 400)) {
+    const placeholders = keys.map(() => '?').join(',');
+    const found = db
+      .prepare(
+        `SELECT * FROM files
+         WHERE vault_id = ? AND deleted = 0 AND encrypted = 0
+           AND path_key IN (${placeholders})`,
+      )
+      .all(vaultId, ...keys) as FileRow[];
+    rows.push(...found);
+  }
 
   for (;;) {
-    const liveFiles = db
-      .prepare('SELECT * FROM files WHERE vault_id = ? AND deleted = 0 AND encrypted = 0')
-      .all(vaultId) as FileRow[];
+    const owners = new Map<string, PathOwner>();
 
-    const desired = new Map<string, Array<{ candidate: Candidate | null; row: FileRow | null }>>();
-
-    const add = (
-      key: string | null,
-      entry: { candidate: Candidate | null; row: FileRow | null },
-    ) => {
-      if (!key) return;
-      const existing = desired.get(key);
-      if (existing) existing.push(entry);
-      else desired.set(key, [entry]);
-    };
-
-    for (const row of liveFiles) {
+    for (const row of rows) {
+      if (!row.path_key) continue;
       const candidate = byFileId.get(row.file_id);
-      if (candidate && !candidate.rejected) {
-        if (!candidate.deleted) {
-          add(candidate.pathKey, { candidate, row });
-        }
-      } else {
-        add(row.path_key, { candidate: null, row });
-      }
+      if (candidate && !candidate.rejected) continue;
+      owners.set(row.path_key, {
+        fileId: row.file_id,
+        row,
+        candidate: candidate ?? null,
+      });
     }
 
     let changed = false;
 
-    for (const [pathKey, entries] of desired) {
-      if (entries.length <= 1) continue;
+    for (const candidate of candidates) {
+      if (candidate.rejected || candidate.deleted || !candidate.pathKey) continue;
 
-      const unchanged = entries.find((entry) => entry.candidate === null);
-
-      if (unchanged?.row) {
-        const server = toFileSummary(unchanged.row);
-        for (const entry of entries) {
-          const candidate = entry.candidate;
-          if (!candidate || candidate.rejected) continue;
-          candidate.rejected = true;
-          rejected.add(candidate);
-          const conflict: SyncConflict = {
-            fileId: candidate.change.fileId,
-            code: 'path_taken',
-            message: 'This path is already used by another file in the vault',
-            server,
-          };
-          conflicts.push(conflict);
-          changed = true;
-        }
-        continue;
-      }
-
-      const candidateEntries = entries
-        .filter((entry) => entry.candidate !== null)
-        .sort((a, b) => a.candidate!.index - b.candidate!.index);
-      const keep = candidateEntries[0]?.candidate;
-      if (!keep) continue;
-
-      for (const entry of candidateEntries.slice(1)) {
-        const candidate = entry.candidate!;
-        if (candidate.rejected) continue;
+      const owner = owners.get(candidate.pathKey);
+      if (owner && owner.fileId !== candidate.change.fileId) {
         candidate.rejected = true;
         rejected.add(candidate);
         const conflict: SyncConflict = {
           fileId: candidate.change.fileId,
           code: 'path_taken',
-          message: `Another file in this batch is also moving to "${pathKey}"`,
-          server: keep.current ? toFileSummary(keep.current) : undefined,
+          message: owner.row
+            ? 'This path is already used by another file in the vault'
+            : 'Another file in this batch is already using this path',
+          ...(owner.row ? { server: toFileSummary(owner.row) } : {}),
         };
         conflicts.push(conflict);
+
+        if (
+          candidate.current &&
+          candidate.current.deleted === 0 &&
+          candidate.current.path_key &&
+          targetKeys.has(candidate.current.path_key)
+        ) {
+          owners.set(candidate.current.path_key, {
+            fileId: candidate.current.file_id,
+            row: candidate.current,
+            candidate,
+          });
+        }
+
         changed = true;
+        continue;
       }
+
+      owners.set(candidate.pathKey, {
+        fileId: candidate.change.fileId,
+        row: null,
+        candidate,
+      });
     }
 
     if (!changed) break;

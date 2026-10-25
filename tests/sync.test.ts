@@ -85,6 +85,61 @@ describe('sync engine', () => {
     expect(versions.json().versions[0]).toMatchObject({ revision: 1, hash: created.hash });
   });
 
+  test('paginates snapshots for large vaults', async () => {
+    const pushed = await pushChanges(
+      ctx.app,
+      owner.accessToken,
+      vault.id,
+      [
+        { fileId: 'file-a', path: 'A', kind: 'folder', expectedRevision: null },
+        { fileId: 'file-b', path: 'B', kind: 'folder', expectedRevision: null },
+        { fileId: 'file-c', path: 'C', kind: 'folder', expectedRevision: null },
+      ],
+      true,
+    );
+    expect(pushed.statusCode).toBe(200);
+    expect(pushed.body.revision).toBe(3);
+
+    const firstPage = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/vaults/${vault.id}/files?limit=2`,
+      headers: auth(owner.accessToken),
+    });
+    expect(firstPage.statusCode).toBe(200);
+    expect(firstPage.json()).toMatchObject({
+      revision: 3,
+      hasMore: true,
+      nextCursor: 'file-b',
+    });
+    expect(firstPage.json().files.map((file: { fileId: string }) => file.fileId)).toEqual([
+      'file-a',
+      'file-b',
+    ]);
+
+    const secondPage = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/vaults/${vault.id}/files?limit=2&cursor=file-b`,
+      headers: auth(owner.accessToken),
+    });
+    expect(secondPage.statusCode).toBe(200);
+    expect(secondPage.json()).toMatchObject({
+      revision: 3,
+      hasMore: false,
+      nextCursor: null,
+    });
+    expect(secondPage.json().files.map((file: { fileId: string }) => file.fileId)).toEqual([
+      'file-c',
+    ]);
+
+    const emptyPage = await ctx.app.inject({
+      method: 'GET',
+      url: `/v1/vaults/${vault.id}/files?limit=2&cursor=file-c`,
+      headers: auth(owner.accessToken),
+    });
+    expect(emptyPage.statusCode).toBe(200);
+    expect(emptyPage.json()).toMatchObject({ hasMore: false, nextCursor: null, files: [] });
+  });
+
   test('detects revision conflicts and supports non-atomic partial batches', async () => {
     await createFile(ctx.app, owner.accessToken, vault.id, {
       fileId: 'file-1',

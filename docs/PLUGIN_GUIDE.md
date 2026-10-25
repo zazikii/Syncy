@@ -146,13 +146,15 @@ Trigger when:
 
 Procedure:
 
-1. `GET /v1/vaults/:id/files?includeDeleted=true` and record its `revision`.
+1. Page through `GET /v1/vaults/:id/files?includeDeleted=true&limit=1000` by following `nextCursor` until `hasMore` is false. Record the `revision` from the first page.
 2. Reconcile local files against the snapshot:
    - Server live file and local file exists: compare hashes; download if needed.
    - Server live file missing locally: download.
    - Server tombstone or absent: remove the local file **only if** it is managed by Syncy and is not excluded by selective sync.
-3. Set the cursor to the snapshot revision.
+3. Set the cursor to the first page's snapshot revision.
 4. Pull changes since that revision.
+
+Do not request an unbounded snapshot. Pagination keeps memory bounded for vaults with tens or hundreds of thousands of files, and the subsequent change feed reconciles anything that moved while the snapshot was being read.
 
 Be conservative when deleting local files: a full resync should not delete excluded paths, plugin state or files the user added while offline.
 
@@ -165,9 +167,10 @@ Be conservative when deleting local files: a full resync should not delete exclu
 5. On `vault_changed`, pull changes. Ignore events whose `originDeviceId` matches your device when you already applied them.
 6. On `unsubscribed` with `reason: "membership_changed"`, stop syncing that vault.
 7. On `vault_updated`, refresh the vault's display name.
-8. On `vault_deleted`, stop and notify the user.
-9. Reconnect with exponential backoff. Re-subscribe and pull after every reconnect, because notifications are not a durable log.
-10. Send an application-level `ping` periodically if the underlying connection is idle.
+8. On `vault_settings_changed`, fetch `GET /v1/vaults/:id/settings` and merge or apply it.
+9. On `vault_deleted`, stop and notify the user.
+10. Reconnect with exponential backoff. Re-subscribe and pull after every reconnect, because notifications are not a durable log.
+11. Send an application-level `ping` periodically if the underlying connection is idle.
 
 The WebSocket is only a hint. The change feed is the source of truth.
 
@@ -182,8 +185,15 @@ Syncy does not impose filters. The plugin decides what to push and pull. A good 
 
 ### Settings
 
-- Include: `.obsidian/app.json`, `appearance.json`, `hotkeys.json`, `core-plugins.json`, `community-plugins.json`, `themes.json`, `snippets/**`, `themes/**`.
-- Optional per device: `workspace.json`, `workspace-mobile.json`, `graph.json` — these are often device-specific.
+There are two supported approaches:
+
+1. **Raw file sync (closest to Obsidian Sync)** — sync `.obsidian/app.json`, `appearance.json`, `hotkeys.json`, `core-plugins.json`, `community-plugins.json`, `themes.json`, `snippets/**`, `themes/**` as normal files. This gets version history and the same conflict semantics as notes.
+2. **Structured settings document** — store one document at `PUT /v1/vaults/:id/settings` with sections such as `appearance`, `hotkeys`, `corePlugins`, `communityPlugins`, `snippets`, `themes` and per-device workspace data. The server tracks a separate revision and broadcasts `vault_settings_changed`.
+
+The structured endpoint is convenient when the plugin wants an atomic configuration object and a single revision to resolve conflicts. E2EE vaults can put ciphertext in the document.
+
+- Optional per device: `workspace.json`, `workspace-mobile.json`, `graph.json` — these are often device-specific. Keep them out of settings sync unless the user asks.
+- When both approaches are enabled for the same settings, pick one source of truth to avoid loops.
 
 ### Community plugins
 
@@ -193,7 +203,48 @@ Syncy does not impose filters. The plugin decides what to push and pull. A good 
 
 When selective sync changes, do not delete remote data automatically. Only stop syncing the excluded paths locally.
 
-## 8. End-to-end encryption
+## 8. Large vaults
+
+A vault with 100,000 notes or a large attachment library must never require the plugin to hold the whole remote state in memory or issue one request per file without bounds.
+
+### Initial sync
+
+1. Page the snapshot with `limit=1000` (or 2000–5000 on a fast local network).
+2. Persist each page's file map incrementally.
+3. Keep the first page's `revision` as the snapshot cursor.
+4. Pull changes since that revision in pages.
+5. Save the cursor only after a page is fully applied.
+
+### Push batching
+
+- Keep each `POST /changes` batch around 200–500 changes. The server accepts up to 2000, but smaller batches retry faster and stay well below the 8 MiB JSON limit.
+- Use `atomic: true` for related renames and path swaps. Use smaller unrelated batches when possible.
+- Upload blobs with a small concurrency limit (4–8). Do not open hundreds of uploads at once.
+- Retry failed uploads with exponential backoff. Blobs are content-addressed, so a retry is safe and a completed upload deduplicates.
+- Persist a write-ahead queue of local changes before pushing. On crash, replay it idempotently.
+- After `429`, honor `Retry-After` and reduce concurrency.
+
+### Pull batching
+
+- Use `limit=500` (default) and follow `nextCursor`/`hasMore` until the fixed `until` revision is reached.
+- Apply changes in revision order and write files atomically (temp file + rename).
+- Do not re-read or re-hash every file on every poll. Use the file watcher plus a quick `mtime`/size check, then hash only changed files.
+
+### Memory and durability
+
+- Stream blob uploads and downloads; never buffer a 500 MB attachment in memory.
+- Store the cursor and pending queue durably outside the synced vault tree.
+- On startup, resume the pending queue and pull from the last durable cursor. A crash between applying a page and saving the cursor must be safe because applies are idempotent.
+- Server-side garbage collection can prune old change history. A `410 CURSOR_EXPIRED` means run the paginated full-resync flow, not that data was lost.
+
+### Server-side scaling notes
+
+- Snapshots and change pulls are paginated.
+- Pushes only inspect paths touched by the batch, not the entire vault.
+- The default global request limit is 6000/minute; raise `RATE_LIMIT_MAX` for very fast initial imports.
+- SQLite WAL and the path/change/version indexes keep per-file lookups fast. Keep `DATA_DIR` on local SSD storage.
+
+## 9. End-to-end encryption
 
 For an E2EE vault:
 
@@ -216,7 +267,7 @@ Key delivery:
 
 The server never validates that ciphertext is real. A compromised client can still push garbage; E2EE protects confidentiality, not integrity against malicious members.
 
-## 9. Failure handling
+## 10. Failure handling
 
 | Situation | Recommended action |
 | --- | --- |
@@ -231,7 +282,7 @@ The server never validates that ciphertext is real. A compromised client can sti
 | `429` | Honor `Retry-After` (or back off exponentially). |
 | Network failure | Keep pending changes, retry with jitter, never lose local data. |
 
-## 10. Recommended sync loop
+## 11. Recommended sync loop
 
 ```
 on local change:
@@ -249,12 +300,13 @@ on websocket notification or timer:
 
 on app start:
   refresh token if needed
-  full snapshot if no cursor
-  pull changes
+  page the snapshot if no cursor, keep first-page revision
+  pull changes since that revision
+  fetch vault settings
   subscribe websocket
 ```
 
-## 11. Excluding Syncy's own data
+## 12. Excluding Syncy's own data
 
 If the plugin stores state inside the vault, add a hard exclusion for:
 
@@ -264,3 +316,4 @@ If the plugin stores state inside the vault, add a hard exclusion for:
 ```
 
 Better: store state in the plugin's local data outside the synced file set. Syncing a cursor or a file-ID map can cause loops and divergence between devices.
+
