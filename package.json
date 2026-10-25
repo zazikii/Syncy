@@ -5,6 +5,11 @@
   "type": "module",
   "description": "Self-hosted sync server for Obsidian vaults, plugins, themes and settings",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://git.zaziki.dev/zaziki/Syncy.git"
+  },
+  "homepage": "https://git.zaziki.dev/zaziki/Syncy",
   "engines": {
     "node": ">=22"
   },
