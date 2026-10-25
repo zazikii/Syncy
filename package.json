@@ -7,9 +7,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://git.zaziki.dev/zaziki/Syncy.git"
+    "url": "https://github.com/zazikii/Syncy.git"
   },
-  "homepage": "https://git.zaziki.dev/zaziki/Syncy",
+  "homepage": "https://github.com/zazikii/Syncy",
   "engines": {
     "node": ">=22"
   },

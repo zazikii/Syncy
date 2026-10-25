@@ -318,4 +318,4 @@ MIT — see [LICENSE](LICENSE).
 
 Syncy is an independent project and is not affiliated with Obsidian.
 
-Repository: [git.zaziki.dev/zaziki/Syncy](https://git.zaziki.dev/zaziki/Syncy)
+Repository: [github.com/zazikii/Syncy](https://github.com/zazikii/Syncy)
