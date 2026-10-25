@@ -131,6 +131,13 @@ const migrations: Migration[] = [
       CREATE INDEX changes_created_at ON changes(created_at);
     `,
   },
+  {
+    version: 2,
+    name: 'user_token_version',
+    sql: `
+      ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 export function openDatabase(config: Config): Db {

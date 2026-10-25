@@ -2,6 +2,7 @@ import type { Config } from '../config.js';
 import type { Db } from '../db/index.js';
 import { revokeAllForUser } from '../db/tokens.js';
 import {
+  bumpTokenVersion,
   createUser,
   findUserByEmail,
   updateUserFlags,
@@ -40,6 +41,7 @@ export async function ensureConfiguredUser(
     const passwordHash = await hashPassword(configured.password);
     updateUserPassword(db, existing.id, passwordHash);
     revokeAllForUser(db, existing.id);
+    bumpTokenVersion(db, existing.id);
     passwordUpdated = true;
   }
 

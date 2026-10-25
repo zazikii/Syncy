@@ -152,8 +152,42 @@ describe('authentication', () => {
     });
     expect(refresh.statusCode).toBe(401);
 
+    const oldAccess = await ctx.app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: auth(session.accessToken),
+    });
+    expect(oldAccess.statusCode).toBe(401);
+    expect(oldAccess.json().error.code).toBe('TOKEN_REVOKED');
+
     const newLogin = await login(ctx.app, 'admin@example.com', 'new-password-123');
     expect(newLogin.accessToken).toBeTruthy();
+  });
+
+  test('logout-all revokes refresh and access tokens', async () => {
+    const session = await setupAdmin(ctx.app);
+
+    const logout = await ctx.app.inject({
+      method: 'POST',
+      url: '/v1/auth/logout-all',
+      headers: auth(session.accessToken),
+    });
+    expect(logout.statusCode).toBe(204);
+
+    const me = await ctx.app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: auth(session.accessToken),
+    });
+    expect(me.statusCode).toBe(401);
+    expect(me.json().error.code).toBe('TOKEN_REVOKED');
+
+    const refresh = await ctx.app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: { refreshToken: session.refreshToken },
+    });
+    expect(refresh.statusCode).toBe(401);
   });
 
   test('registration is closed by default and can be enabled', async () => {

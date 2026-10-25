@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { SERVER_NAME, SERVER_VERSION } from '../config.js';
 import {
   adminCount,
+  bumpTokenVersion,
   findUserById,
   listUsers,
   toPublicUser,
@@ -77,6 +78,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       if (!updated) throw notFound('USER_NOT_FOUND', 'User not found');
 
       if (updated.disabled === 1) {
+        bumpTokenVersion(app.db, updated.id);
         app.hub.dropUser(updated.id);
       }
 

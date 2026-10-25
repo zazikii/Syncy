@@ -35,6 +35,9 @@ export async function authenticate(request: FastifyRequest): Promise<void> {
   if (user.disabled === 1) {
     throw unauthorized('ACCOUNT_DISABLED', 'This account is disabled');
   }
+  if (claims.tokenVersion !== user.token_version) {
+    throw unauthorized('TOKEN_REVOKED', 'Access token has been revoked');
+  }
   if (claims.deviceId && !getDevice(db, user.id, claims.deviceId)) {
     throw unauthorized('DEVICE_REVOKED', 'This device has been removed');
   }

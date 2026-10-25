@@ -6,6 +6,7 @@ import { issueSession } from '../auth/sessions.js';
 import { getDevice, touchDevice, upsertDevice } from '../db/devices.js';
 import { revokeAllForUser, revokeRefreshToken, rotateRefreshToken } from '../db/tokens.js';
 import {
+  bumpTokenVersion,
   createUser,
   findUserByEmail,
   findUserById,
@@ -159,7 +160,10 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post('/v1/auth/logout-all', { preHandler: app.authenticate }, async (request, reply) => {
-    revokeAllForUser(app.db, request.auth!.user.id);
+    const userId = request.auth!.user.id;
+    revokeAllForUser(app.db, userId);
+    bumpTokenVersion(app.db, userId);
+    app.hub.dropUser(userId);
     return reply.status(204).send();
   });
 
@@ -188,6 +192,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     const passwordHash = await hashPassword(body.newPassword);
     updateUserPassword(app.db, user.id, passwordHash);
     revokeAllForUser(app.db, user.id);
+    bumpTokenVersion(app.db, user.id);
+    app.hub.dropUser(user.id);
     return reply.status(204).send();
   });
 

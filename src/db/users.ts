@@ -8,6 +8,7 @@ export interface UserRow {
   display_name: string | null;
   is_admin: number;
   disabled: number;
+  token_version: number;
   created_at: number;
   updated_at: number;
 }
@@ -76,16 +77,30 @@ export function createUser(db: Db, input: CreateUserInput): UserRow {
     display_name: input.displayName ?? null,
     is_admin: input.isAdmin ? 1 : 0,
     disabled: 0,
+    token_version: 0,
     created_at: now,
     updated_at: now,
   };
 
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, display_name, is_admin, disabled, created_at, updated_at)
-     VALUES (@id, @email, @password_hash, @display_name, @is_admin, @disabled, @created_at, @updated_at)`,
+    `INSERT INTO users
+      (id, email, password_hash, display_name, is_admin, disabled, token_version, created_at, updated_at)
+     VALUES
+      (@id, @email, @password_hash, @display_name, @is_admin, @disabled, @token_version, @created_at, @updated_at)`,
   ).run(user);
 
   return user;
+}
+
+export function bumpTokenVersion(db: Db, userId: string): number {
+  db.prepare('UPDATE users SET token_version = token_version + 1, updated_at = ? WHERE id = ?').run(
+    Date.now(),
+    userId,
+  );
+  const row = db.prepare('SELECT token_version FROM users WHERE id = ?').get(userId) as
+    | { token_version: number }
+    | undefined;
+  return row?.token_version ?? 0;
 }
 
 export function updateUserPassword(db: Db, userId: string, passwordHash: string): void {

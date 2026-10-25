@@ -49,6 +49,14 @@ describe('single-user .env configuration', () => {
         });
         expect(revokedRefresh.statusCode).toBe(401);
 
+        const revokedAccess = await secondApp.inject({
+          method: 'GET',
+          url: '/v1/auth/me',
+          headers: { authorization: `Bearer ${firstLogin.accessToken}` },
+        });
+        expect(revokedAccess.statusCode).toBe(401);
+        expect(revokedAccess.json().error.code).toBe('TOKEN_REVOKED');
+
         const secondUser = secondApp.db.prepare('SELECT COUNT(*) AS count FROM users').get() as {
           count: number;
         };

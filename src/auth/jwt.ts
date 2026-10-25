@@ -8,6 +8,7 @@ export interface VerifiedAccessToken {
   email: string;
   isAdmin: boolean;
   deviceId: string | null;
+  tokenVersion: number;
   expiresAt: number;
 }
 
@@ -33,6 +34,7 @@ export async function signAccessToken(
     email: user.email,
     isAdmin: user.is_admin === 1,
     deviceId,
+    tokenVersion: user.token_version,
   })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(user.id)
@@ -70,6 +72,7 @@ export async function verifyAccessToken(
       email: typeof payload.email === 'string' ? payload.email : '',
       isAdmin: payload.isAdmin === true,
       deviceId: typeof payload.deviceId === 'string' ? payload.deviceId : null,
+      tokenVersion: typeof payload.tokenVersion === 'number' ? payload.tokenVersion : 0,
       expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : Date.now(),
     };
   } catch (error) {

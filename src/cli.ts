@@ -247,6 +247,9 @@ async function backupCommand(values: Record<string, string | boolean>): Promise<
   if (!dbOnly) {
     await cp(config.blobDir, path.join(outputDir, 'blobs'), { recursive: true, force: true });
   }
+  await cp(path.join(config.dataDir, '.jwt-secret'), path.join(outputDir, '.jwt-secret'), {
+    force: true,
+  }).catch(() => undefined);
 
   console.log(`Backup written to ${outputDir}${dbOnly ? ' (database only)' : ''}`);
 }
