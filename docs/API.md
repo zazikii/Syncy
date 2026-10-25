@@ -661,6 +661,7 @@ Server messages:
 { "type": "unsubscribed", "vaultId": "vault-id" }
 { "type": "unsubscribed", "vaultId": "vault-id", "reason": "membership_changed" }
 { "type": "pong", "serverTime": 1750000000000 }
+{ "type": "vault_updated", "vaultId": "vault-id", "name": "New name", "actorUserId": "user-id" }
 {
   "type": "vault_changed",
   "vaultId": "vault-id",

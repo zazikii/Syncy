@@ -178,8 +178,21 @@ export class LocalBlobStore {
   }
 
   private async drain(stream: Readable): Promise<void> {
+    let size = 0;
+    const meter = new Transform({
+      transform: (chunk: Buffer, _encoding, callback) => {
+        size += chunk.length;
+        if (size > this.maxBytes) {
+          callback(new AppError(413, 'BLOB_TOO_LARGE', 'Uploaded blob exceeds the size limit'));
+          return;
+        }
+        callback(null, chunk);
+      },
+    });
+
     await pipeline(
       stream,
+      meter,
       new Writable({
         write: (_chunk, _encoding, callback) => callback(),
       }),

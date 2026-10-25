@@ -16,6 +16,7 @@ export type VaultEvent =
       actorUserId: string;
       originDeviceId: string | null;
     }
+  | { type: 'vault_updated'; vaultId: string; name: string; actorUserId: string }
   | { type: 'vault_deleted'; vaultId: string; actorUserId: string }
   | { type: 'vault_members_changed'; vaultId: string; actorUserId: string };
 

@@ -94,6 +94,12 @@ export async function registerVaultRoutes(app: FastifyInstance): Promise<void> {
     const body = updateVaultSchema.parse(request.body);
     const access = requireVaultAccess(app.db, vaultId, request.auth!.user.id, 'owner');
     const vault = updateVaultName(app.db, vaultId, body.name);
+    app.hub.broadcastVault(vaultId, {
+      type: 'vault_updated',
+      vaultId,
+      name: vault.name,
+      actorUserId: request.auth!.user.id,
+    });
     return {
       vault: vaultView(
         vault,

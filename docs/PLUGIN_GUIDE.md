@@ -164,9 +164,10 @@ Be conservative when deleting local files: a full resync should not delete exclu
 4. Send `{"type":"subscribe","vaultId":"..."}` for each vault.
 5. On `vault_changed`, pull changes. Ignore events whose `originDeviceId` matches your device when you already applied them.
 6. On `unsubscribed` with `reason: "membership_changed"`, stop syncing that vault.
-7. On `vault_deleted`, stop and notify the user.
-8. Reconnect with exponential backoff. Re-subscribe and pull after every reconnect, because notifications are not a durable log.
-9. Send an application-level `ping` periodically if the underlying connection is idle.
+7. On `vault_updated`, refresh the vault's display name.
+8. On `vault_deleted`, stop and notify the user.
+9. Reconnect with exponential backoff. Re-subscribe and pull after every reconnect, because notifications are not a durable log.
+10. Send an application-level `ping` periodically if the underlying connection is idle.
 
 The WebSocket is only a hint. The change feed is the source of truth.
 
