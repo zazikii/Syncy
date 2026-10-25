@@ -172,6 +172,8 @@ docker run --rm \
 docker compose start syncy
 ```
 
+The CLI backup also copies `.jwt-secret` when it exists. Back up your `.env` separately (or keep it in a secret manager): it contains `SYNCY_PASSWORD`, possibly `JWT_SECRET`, and the other deployment settings. If you set `JWT_SECRET` through the environment instead of a file, the backup will not contain it.
+
 Treat backups as secrets. Without E2EE, they contain plaintext notes and plugin tokens. With E2EE, they still contain metadata and ciphertext.
 
 ### Restore

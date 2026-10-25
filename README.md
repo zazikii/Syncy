@@ -89,6 +89,7 @@ If neither a `.env` user nor any database user exists, call `POST /v1/setup` onc
 
 - [API reference](docs/API.md) — endpoints, auth, sync model, conflicts, WebSocket messages and errors.
 - [Plugin implementation guide](docs/PLUGIN_GUIDE.md) — how the companion plugin should store state, create file IDs, upload blobs, resolve conflicts and handle selective sync.
+- [Architecture](docs/ARCHITECTURE.md) — data model, sync algorithm, blob storage and design limits.
 - [End-to-end encryption](docs/E2EE.md) — threat model, key envelopes and metadata leakage.
 - [Self-hosting operations](docs/SELF_HOSTING.md) — backups, garbage collection, reverse proxy, upgrades and recovery.
 

@@ -48,7 +48,7 @@ export async function authenticate(request: FastifyRequest): Promise<void> {
   };
 }
 
-export function requireAdmin(request: FastifyRequest): void {
+export async function requireAdmin(request: FastifyRequest): Promise<void> {
   if (request.auth?.user.is_admin !== 1) {
     throw forbidden('ADMIN_REQUIRED', 'Administrator access is required');
   }
