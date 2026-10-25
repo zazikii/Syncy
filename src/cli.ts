@@ -4,11 +4,10 @@ import { parseArgs } from 'node:util';
 import { hashPassword } from './auth/password.js';
 import { loadConfig } from './config.js';
 import { openDatabase } from './db/index.js';
-import { collectReferencedHashes } from './db/sync.js';
-import { pruneRefreshTokens } from './db/tokens.js';
 import { createUser, findUserByEmail, listUsers, userCount } from './db/users.js';
 import { countVaults } from './db/vaults.js';
 import { LocalBlobStore } from './services/blobStore.js';
+import { runGc } from './services/gc.js';
 
 const HELP = `Syncy CLI
 
@@ -129,98 +128,24 @@ async function gcCommand(values: Record<string, string | boolean>): Promise<void
   const blobs = new LocalBlobStore(config.blobDir, config.maxBlobBytes);
   await blobs.init();
 
-  const now = Date.now();
-  const cutoff = now - retentionDays * 86_400_000;
-  let prunedVersions = 0;
-  let prunedChanges = 0;
-  let prunedRefreshTokens = 0;
-
   try {
-    if (retentionDays > 0) {
-      const candidates = db
-        .prepare(
-          `SELECT v.id, v.vault_id, v.revision
-           FROM versions v
-           WHERE v.created_at < ?
-             AND v.revision < (
-               SELECT MAX(v2.revision) FROM versions v2
-               WHERE v2.vault_id = v.vault_id AND v2.file_id = v.file_id
-             )`,
-        )
-        .all(cutoff) as Array<{ id: string; vault_id: string; revision: number }>;
-
-      const maxRevisionByVault = new Map<string, number>();
-      for (const candidate of candidates) {
-        const current = maxRevisionByVault.get(candidate.vault_id) ?? 0;
-        if (candidate.revision > current) {
-          maxRevisionByVault.set(candidate.vault_id, candidate.revision);
-        }
-      }
-
-      if (apply && candidates.length > 0) {
-        const prune = db.transaction(() => {
-          const deleteVersion = db.prepare('DELETE FROM versions WHERE id = ?');
-          for (const candidate of candidates) deleteVersion.run(candidate.id);
-
-          for (const [vaultId, maxRevision] of maxRevisionByVault) {
-            const result = db
-              .prepare('DELETE FROM changes WHERE vault_id = ? AND revision <= ?')
-              .run(vaultId, maxRevision);
-            prunedChanges += result.changes;
-            db.prepare(
-              'UPDATE vaults SET pruned_before_rev = MAX(pruned_before_rev, ?) WHERE id = ?',
-            ).run(maxRevision, vaultId);
-          }
-        });
-        prune();
-      }
-
-      prunedVersions = candidates.length;
-    }
-
-    const referenced = collectReferencedHashes(db);
-    const blobList = await blobs.list();
-    const graceCutoff = now - graceHours * 3_600_000;
-    const unreferenced = blobList.filter(
-      (blob) => !referenced.has(blob.hash) && blob.mtimeMs < graceCutoff,
-    );
-
-    let deletedBlobs = 0;
-    let freedBytes = 0;
-    if (apply) {
-      for (const blob of unreferenced) {
-        if (await blobs.remove(blob.hash)) {
-          deletedBlobs += 1;
-          freedBytes += blob.size;
-        }
-      }
-      prunedRefreshTokens += pruneRefreshTokens(db);
-    }
+    const result = await runGc(db, blobs, {
+      retentionDays,
+      graceHours,
+      apply,
+      vacuum,
+    });
 
     console.log(
       JSON.stringify(
         {
-          apply,
-          retentionDays,
-          graceHours,
-          prunedVersions,
-          prunedChanges,
-          prunedRefreshTokens,
-          unreferencedBlobs: unreferenced.length,
-          deletedBlobs,
-          freedBytes,
+          ...result,
           tip: apply ? undefined : 'Dry run. Re-run with --yes to apply.',
         },
         null,
         2,
       ),
     );
-
-    if (apply && vacuum) {
-      db.pragma('wal_checkpoint(TRUNCATE)');
-      db.exec('VACUUM');
-      console.log('Database vacuumed');
-    }
   } finally {
     db.close();
   }

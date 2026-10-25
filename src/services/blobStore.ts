@@ -158,17 +158,16 @@ export class LocalBlobStore {
         let files: string[] = [];
         try {
           files = (await readdir(path.join(this.root, first, second), { withFileTypes: true }))
-            .filter((entry) => entry.isFile() && /^[a-f0-9]{60}$/.test(entry.name))
+            .filter((entry) => entry.isFile() && /^[a-f0-9]{64}$/.test(entry.name))
             .map((entry) => entry.name);
         } catch {
           continue;
         }
 
-        for (const name of files) {
-          const hash = first + second + name;
+        for (const hash of files) {
           if (!isSha256(hash)) continue;
           try {
-            const info = await stat(path.join(this.root, first, second, name));
+            const info = await stat(path.join(this.root, first, second, hash));
             blobs.push({ hash, mtimeMs: info.mtimeMs, size: info.size });
           } catch {}
         }
