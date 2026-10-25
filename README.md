@@ -4,7 +4,7 @@
 
 <p><strong>Your vault. Your server. Everything in sync.</strong></p>
 
-<p>Self-hosted sync for Obsidian notes, attachments, plugins, settings, themes and history.</p>
+<p>Open-source, self-hosted sync for Obsidian notes, attachments, plugins, settings, themes and history.</p>
 
 <p>
   <img alt="Node 22+" src="https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white">
@@ -13,6 +13,7 @@
   <img alt="API v1" src="https://img.shields.io/badge/API-v1-0F766E">
   <img alt="E2EE optional" src="https://img.shields.io/badge/E2EE-optional-7C3AED">
   <img alt="Vibecoded" src="https://img.shields.io/badge/vibecoded-yes-FF6B6B">
+  <img alt="Open Source" src="https://img.shields.io/badge/open%20source-yes-2EA043">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
@@ -20,6 +21,9 @@
 
 > [!WARNING]
 > **Vibecoded.** Syncy was built with heavy AI assistance. It has an integration test suite and is designed carefully, but it is young software. Review the code, run the tests, keep independent backups, and do not treat this server as the only copy of important data.
+
+> [!NOTE]
+> **Open source.** Syncy is open source under the MIT license. Fork it, audit it, self-host it and contribute back.
 
 Syncy is the self-hosted server side of a two-part Obsidian sync stack. The Obsidian plugin lives in a separate repository. This server is content-agnostic, so note sync, plugin sync, theme sync and vault-configuration sync all use the same reliable file protocol.
 
