@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Self-hosted sync server for Obsidian vaults, plugins, themes and settings",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/zazikii/Syncy.git"

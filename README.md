@@ -4,7 +4,7 @@
 
 <p><strong>Your vault. Your server. Everything in sync.</strong></p>
 
-<p>Open-source, self-hosted sync for Obsidian notes, attachments, plugins, settings, themes and history.</p>
+<p>Source-available, self-hosted sync for Obsidian notes, attachments, plugins, settings, themes and history.</p>
 
 <p>
   <img alt="Node 22+" src="https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white">
@@ -13,8 +13,8 @@
   <img alt="API v1" src="https://img.shields.io/badge/API-v1-0F766E">
   <img alt="E2EE optional" src="https://img.shields.io/badge/E2EE-optional-7C3AED">
   <img alt="Vibecoded" src="https://img.shields.io/badge/vibecoded-yes-FF6B6B">
-  <img alt="Open Source" src="https://img.shields.io/badge/open%20source-yes-2EA043">
-  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Source available" src="https://img.shields.io/badge/source%20available-yes-2EA043">
+  <img alt="PolyForm Noncommercial" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange">
 </p>
 
 </div>
@@ -23,7 +23,7 @@
 > **Vibecoded.** Syncy was built with heavy AI assistance. It has an integration test suite and is designed carefully, but it is young software. Review the code, run the tests, keep independent backups, and do not treat this server as the only copy of important data.
 
 > [!NOTE]
-> **Open source.** Syncy is open source under the MIT license. Fork it, audit it, self-host it and contribute back.
+> **Source-available, noncommercial.** Syncy is published under the PolyForm Noncommercial 1.0.0 license. You may use, modify, audit and self-host it for noncommercial purposes. You may not sell it, resell it, or offer it as a paid product or service. This is not an OSI-approved open-source license.
 
 Syncy is the self-hosted server side of a two-part Obsidian sync stack. The Obsidian plugin lives in a separate repository. This server is content-agnostic, so note sync, plugin sync, theme sync and vault-configuration sync all use the same reliable file protocol.
 
@@ -318,7 +318,9 @@ This is an early project. Bug reports, protocol feedback, security reviews and p
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Syncy is **source-available, not OSI open source**, under the [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) license.
+
+You may use, modify and self-host it for noncommercial purposes. You may not sell it, resell it, or offer it as a paid product or service. See [LICENSE](LICENSE).
 
 Syncy is an independent project and is not affiliated with Obsidian.
 
