@@ -133,6 +133,7 @@ async function gcCommand(values: Record<string, string | boolean>): Promise<void
   const cutoff = now - retentionDays * 86_400_000;
   let prunedVersions = 0;
   let prunedChanges = 0;
+  let prunedRefreshTokens = 0;
 
   try {
     if (retentionDays > 0) {
@@ -193,7 +194,7 @@ async function gcCommand(values: Record<string, string | boolean>): Promise<void
           freedBytes += blob.size;
         }
       }
-      prunedChanges += pruneRefreshTokens(db);
+      prunedRefreshTokens += pruneRefreshTokens(db);
     }
 
     console.log(
@@ -204,6 +205,7 @@ async function gcCommand(values: Record<string, string | boolean>): Promise<void
           graceHours,
           prunedVersions,
           prunedChanges,
+          prunedRefreshTokens,
           unreferencedBlobs: unreferenced.length,
           deletedBlobs,
           freedBytes,

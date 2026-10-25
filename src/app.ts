@@ -68,7 +68,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     trustProxy: config.trustProxy,
     bodyLimit: config.maxJsonBodyBytes,
     exposeHeadRoutes: false,
-    disableRequestLogging: config.nodeEnv === 'test',
   });
 
   app.decorate('db', db);

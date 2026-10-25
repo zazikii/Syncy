@@ -110,7 +110,20 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function loadLocalDotEnv(env: NodeJS.ProcessEnv): void {
+  if (env !== process.env) return;
+
+  try {
+    process.loadEnvFile(path.resolve(process.cwd(), '.env'));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return;
+    throw error;
+  }
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  loadLocalDotEnv(env);
   const raw = envSchema.parse(env);
   const dataDir = path.resolve(raw.DATA_DIR);
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
